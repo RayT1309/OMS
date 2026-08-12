@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { fileToCompressedDataUrl } from '../utils/photo';
 
 const INCIDENT_TYPES = [
   { value: 'assault', label: 'Assault' },
@@ -13,8 +14,21 @@ export default function IncidentForm({ offenders, offline, onToggleOffline, onSu
   const [offenderId, setOffenderId] = useState('');
   const [type, setType] = useState('assault');
   const [injury, setInjury] = useState(false);
+  const [photoDataUrl, setPhotoDataUrl] = useState('');
+  const [photoError, setPhotoError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [lastResult, setLastResult] = useState(null);
+
+  const handlePhotoCapture = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setPhotoError(null);
+    try {
+      setPhotoDataUrl(await fileToCompressedDataUrl(file));
+    } catch (err) {
+      setPhotoError(err.message);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,10 +41,12 @@ export default function IncidentForm({ offenders, offline, onToggleOffline, onSu
         facility_id: offender.facility_id,
         type,
         injury,
-        offline
+        offline,
+        photo: photoDataUrl || null
       });
       setLastResult({ synced: result.synced });
       setInjury(false);
+      setPhotoDataUrl('');
     } finally {
       setSubmitting(false);
     }
@@ -84,6 +100,18 @@ export default function IncidentForm({ offenders, offline, onToggleOffline, onSu
             Resulted in injury
           </label>
         )}
+
+        <label>
+          Evidence Photo (optional)
+          <input type="file" accept="image/*" capture="environment" onChange={handlePhotoCapture} />
+        </label>
+        {photoDataUrl && (
+          <div className="photo-preview">
+            <img src={photoDataUrl} alt="Captured evidence" />
+            <button type="button" className="btn-ghost" onClick={() => setPhotoDataUrl('')}>Remove</button>
+          </div>
+        )}
+        {photoError && <p className="form-error">{photoError}</p>}
 
         <button type="submit" disabled={submitting || !offenderId}>
           {offline ? 'Log Offline (queue locally)' : 'Log Incident'}

@@ -17,7 +17,10 @@ const { generateDailyReportsForAllFacilities } = require('./report-engine');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+// Raised from Express's 100kb default to fit a base64-encoded photo
+// (captured images are pre-compressed client-side, but base64 still adds
+// ~33% overhead on top of the compressed size).
+app.use(express.json({ limit: '8mb' }));
 
 app.use('/api/auth', authRouter);
 

@@ -16,6 +16,7 @@ export default function OffenderTable({ offenders }) {
         <table>
           <thead>
             <tr>
+              <th></th>
               <th>Name</th>
               <th>Facility</th>
               <th>Admission Date</th>
@@ -26,6 +27,13 @@ export default function OffenderTable({ offenders }) {
           <tbody>
             {offenders.map((o) => (
               <tr key={o.id} className="row-clickable" onClick={() => navigate(`/offenders/${o.id}`)}>
+                <td>
+                  {o.photo_url ? (
+                    <img src={o.photo_url} alt="" className="offender-thumb" />
+                  ) : (
+                    <div className="offender-thumb offender-thumb-placeholder" aria-hidden="true">{o.name.charAt(0)}</div>
+                  )}
+                </td>
                 <td>{o.name}</td>
                 <td>{o.facility_name}</td>
                 <td>{new Date(o.admission_date).toLocaleDateString('en-ZA')}</td>

@@ -1,5 +1,6 @@
 const express = require('express');
 const sql = require('../db');
+const { uploadPhoto } = require('../storage');
 
 const router = express.Router();
 
@@ -29,7 +30,7 @@ const OFFENDER_COLUMNS = `
   o.sentence_status, o.passport_number, o.denomination, o.gender, o.place_of_birth,
   o.date_of_birth, o.number_of_dependants, o.postal_code,
   o.next_of_kin_relationship, o.next_of_kin_town, o.next_of_kin_province, o.next_of_kin_postal_code,
-  o.body_receipt_id,
+  o.body_receipt_id, o.photo_url,
   f.id AS facility_id, f.name AS facility_name
 `;
 
@@ -91,7 +92,8 @@ router.get('/:id/profile', async (req, res) => {
     sectionCAssessments,
     sectionDAssessments,
     csPlans,
-    releases
+    releases,
+    photos
   ] = await Promise.all([
     sql`SELECT * FROM health_records WHERE offender_id = ${id}`,
     sql`SELECT * FROM education_records WHERE offender_id = ${id} ORDER BY id`,
@@ -113,7 +115,8 @@ router.get('/:id/profile', async (req, res) => {
     sql`SELECT * FROM section_c_assessments WHERE offender_id = ${id} ORDER BY assessment_date DESC`,
     sql`SELECT * FROM section_d_assessments WHERE offender_id = ${id} ORDER BY assessment_date DESC`,
     sql`SELECT * FROM correctional_sentence_plans WHERE offender_id = ${id} ORDER BY plan_date DESC`,
-    sql`SELECT * FROM releases WHERE offender_id = ${id} ORDER BY release_date DESC`
+    sql`SELECT * FROM releases WHERE offender_id = ${id} ORDER BY release_date DESC`,
+    sql`SELECT * FROM offender_photos WHERE offender_id = ${id} ORDER BY created_at DESC`
   ]);
 
   const correctionalSentencePlans = await Promise.all(
@@ -145,7 +148,8 @@ router.get('/:id/profile', async (req, res) => {
     section_c_assessments: sectionCAssessments,
     section_d_assessments: sectionDAssessments,
     correctional_sentence_plans: correctionalSentencePlans,
-    releases
+    releases,
+    photos
   });
 });
 
@@ -158,7 +162,7 @@ router.post('/', async (req, res) => {
     sentence_status, passport_number, denomination, gender, place_of_birth,
     date_of_birth, number_of_dependants, postal_code,
     next_of_kin_relationship, next_of_kin_town, next_of_kin_province, next_of_kin_postal_code,
-    body_receipt_id
+    body_receipt_id, photo
   } = req.body;
   if (!name || !facility_id || !admission_date || !status) {
     return res.status(400).json({ error: 'name, facility_id, admission_date, status are required' });
@@ -196,7 +200,14 @@ router.post('/', async (req, res) => {
   };
 
   const [created] = await sql`INSERT INTO offenders ${sql(row)} RETURNING id`;
-  res.status(201).json({ id: created.id });
+
+  let photo_url = null;
+  if (photo) {
+    photo_url = await uploadPhoto('offenders', created.id, photo);
+    await sql`UPDATE offenders SET photo_url = ${photo_url} WHERE id = ${created.id}`;
+  }
+
+  res.status(201).json({ id: created.id, photo_url });
 });
 
 router.put('/:id', async (req, res) => {
@@ -211,8 +222,10 @@ router.put('/:id', async (req, res) => {
     sentence_status, passport_number, denomination, gender, place_of_birth,
     date_of_birth, number_of_dependants, postal_code,
     next_of_kin_relationship, next_of_kin_town, next_of_kin_province, next_of_kin_postal_code,
-    body_receipt_id
+    body_receipt_id, photo
   } = req.body;
+
+  const photo_url = photo ? await uploadPhoto('offenders', req.params.id, photo) : existing.photo_url;
 
   const row = {
     name: name ?? existing.name,
@@ -245,11 +258,33 @@ router.put('/:id', async (req, res) => {
     next_of_kin_town: next_of_kin_town ?? existing.next_of_kin_town,
     next_of_kin_province: next_of_kin_province ?? existing.next_of_kin_province,
     next_of_kin_postal_code: next_of_kin_postal_code ?? existing.next_of_kin_postal_code,
-    body_receipt_id: body_receipt_id ?? existing.body_receipt_id
+    body_receipt_id: body_receipt_id ?? existing.body_receipt_id,
+    photo_url
   };
 
   await sql`UPDATE offenders SET ${sql(row)} WHERE id = ${req.params.id}`;
   res.json({ updated: true });
+});
+
+router.post('/:id/photos', async (req, res) => {
+  const { kind, photo, note } = req.body;
+  if (!photo) return res.status(400).json({ error: 'photo is required' });
+  if (kind !== 'mugshot' && kind !== 'evidence') {
+    return res.status(400).json({ error: "kind must be 'mugshot' or 'evidence'" });
+  }
+
+  const photo_url = await uploadPhoto('offenders', req.params.id, photo);
+
+  const [created] = await sql`
+    INSERT INTO offender_photos ${sql({ offender_id: req.params.id, kind, photo_url, note: note || null })}
+    RETURNING *
+  `;
+
+  if (kind === 'mugshot') {
+    await sql`UPDATE offenders SET photo_url = ${photo_url} WHERE id = ${req.params.id}`;
+  }
+
+  res.status(201).json(created);
 });
 
 router.post('/:id/screenings', async (req, res) => {

@@ -68,6 +68,7 @@ export const api = {
   createOffender: (offender) => request('/offenders', { method: 'POST', body: JSON.stringify(offender) }),
   updateGangAffiliation: (id, gang) => request(`/offenders/${id}/gang`, { method: 'PUT', body: JSON.stringify(gang) }),
   addPersonalProperty: (id, item) => request(`/offenders/${id}/property`, { method: 'POST', body: JSON.stringify(item) }),
+  addOffenderPhoto: (id, photo) => request(`/offenders/${id}/photos`, { method: 'POST', body: JSON.stringify(photo) }),
   addWarrant: (id, warrant) => request(`/offenders/${id}/warrants`, { method: 'POST', body: JSON.stringify(warrant) }),
   addHealthAssessment: (id, assessment) => request(`/offenders/${id}/health-assessments`, { method: 'POST', body: JSON.stringify(assessment) }),
   addSectionAAssessment: (id, assessment) => request(`/offenders/${id}/section-a-assessments`, { method: 'POST', body: JSON.stringify(assessment) }),

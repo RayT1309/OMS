@@ -11,6 +11,7 @@ import AddSectionCAssessmentModal from './AddSectionCAssessmentModal';
 import AddSectionDAssessmentModal from './AddSectionDAssessmentModal';
 import AddCorrectionalSentencePlanModal from './AddCorrectionalSentencePlanModal';
 import AddReleaseModal from './AddReleaseModal';
+import AddPhotoModal from './AddPhotoModal';
 
 const SENTENCE_STATUS_LABEL = {
   sentenced: 'Sentenced',
@@ -187,6 +188,12 @@ export default function OffenderProfile() {
     setActiveModal(null);
   };
 
+  const handleAddPhoto = async (photo) => {
+    await api.addOffenderPhoto(id, photo);
+    await loadProfile();
+    setActiveModal(null);
+  };
+
   const handleSaveGang = async () => {
     setSavingGang(true);
     setGangError(null);
@@ -210,6 +217,13 @@ export default function OffenderProfile() {
 
       <div className="panel profile-summary">
         <div className="profile-summary-header">
+          {profile.photo_url ? (
+            <img src={profile.photo_url} alt={profile.name} className="offender-photo" />
+          ) : (
+            <div className="offender-photo offender-photo-placeholder" aria-hidden="true">
+              {profile.name.charAt(0)}
+            </div>
+          )}
           <h2>{profile.name}</h2>
           <span className={`status-pill status-${profile.status}`}>{STATUS_LABEL[profile.status]}</span>
         </div>
@@ -259,6 +273,30 @@ export default function OffenderProfile() {
             </dd>
           </div>
         </dl>
+      </div>
+
+      <div className="panel profile-section">
+        <h3>Photos</h3>
+        <div className="screening-actions">
+          <button type="button" className="btn-primary" onClick={() => setActiveModal('photo')}>
+            Add Photo
+          </button>
+        </div>
+        {profile.photos.length === 0 ? (
+          <p className="empty">No photos on record.</p>
+        ) : (
+          <div className="photo-gallery">
+            {profile.photos.map((p) => (
+              <div className="photo-gallery-item" key={p.id}>
+                <img src={p.photo_url} alt={p.kind === 'mugshot' ? 'Mugshot' : 'Evidence photo'} />
+                <span className="profile-list-meta">
+                  {p.kind === 'mugshot' ? 'Mugshot' : 'Evidence'} · {new Date(p.created_at).toLocaleDateString('en-ZA')}
+                </span>
+                {p.note && <p className="profile-list-note">{p.note}</p>}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="health-tiles">
@@ -851,7 +889,7 @@ export default function OffenderProfile() {
         )}
       </div>
 
-      {activeModal && !['property', 'warrant', 'health_assessment', 'section_a_assessment', 'section_b_assessment', 'section_c_assessment', 'section_d_assessment', 'correctional_sentence_plan', 'release'].includes(activeModal) && (
+      {activeModal && !['property', 'warrant', 'health_assessment', 'section_a_assessment', 'section_b_assessment', 'section_c_assessment', 'section_d_assessment', 'correctional_sentence_plan', 'release', 'photo'].includes(activeModal) && (
         <AddScreeningModal
           screeningType={activeModal}
           onClose={() => setActiveModal(null)}
@@ -919,6 +957,13 @@ export default function OffenderProfile() {
         <AddReleaseModal
           onClose={() => setActiveModal(null)}
           onSubmit={handleAddRelease}
+        />
+      )}
+
+      {activeModal === 'photo' && (
+        <AddPhotoModal
+          onClose={() => setActiveModal(null)}
+          onSubmit={handleAddPhoto}
         />
       )}
     </div>

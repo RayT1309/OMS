@@ -1,5 +1,6 @@
 const express = require('express');
 const sql = require('../db');
+const { uploadPhoto } = require('../storage');
 
 const router = express.Router();
 
@@ -35,7 +36,7 @@ router.get('/outbox', async (req, res) => {
 // being disconnected — the event is written locally with synced=0 and
 // stays queued (and out of KPI computation) until /api/incidents/sync runs.
 router.post('/', async (req, res) => {
-  const { offender_id, type, injury, timestamp, facility_id, offline } = req.body;
+  const { offender_id, type, injury, timestamp, facility_id, offline, photo } = req.body;
   if (!offender_id || !type || !facility_id) {
     return res.status(400).json({ error: 'offender_id, type, facility_id are required' });
   }
@@ -46,7 +47,13 @@ router.post('/', async (req, res) => {
     RETURNING id
   `;
 
-  res.status(201).json({ id, synced: !!synced });
+  let photo_url = null;
+  if (photo) {
+    photo_url = await uploadPhoto('incidents', id, photo);
+    await sql`UPDATE incidents SET photo_url = ${photo_url} WHERE id = ${id}`;
+  }
+
+  res.status(201).json({ id, synced: !!synced, photo_url });
 });
 
 // "Sync now" — flips every queued (synced=0) incident to synced=1.

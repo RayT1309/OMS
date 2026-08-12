@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
+import { fileToCompressedDataUrl } from '../utils/photo';
 
 const STEPS = ['Personal Details', 'Next of Kin', 'Gang Affiliation', 'Upload Photo'];
 
@@ -38,7 +39,8 @@ export default function FingerprintFlow({ offenders, onEnrolled }) {
   const [kin, setKin] = useState(EMPTY_KIN);
   const [gang, setGang] = useState(EMPTY_GANG);
   const [bodyReceiptId, setBodyReceiptId] = useState('');
-  const [photoName, setPhotoName] = useState('');
+  const [photoDataUrl, setPhotoDataUrl] = useState('');
+  const [photoError, setPhotoError] = useState(null);
   const [verifyOffenderId, setVerifyOffenderId] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
@@ -84,7 +86,8 @@ export default function FingerprintFlow({ offenders, onEnrolled }) {
     setKin(EMPTY_KIN);
     setGang(EMPTY_GANG);
     setBodyReceiptId('');
-    setPhotoName('');
+    setPhotoDataUrl('');
+    setPhotoError(null);
     setVerifyOffenderId('');
     setSubmitError(null);
   };
@@ -92,6 +95,17 @@ export default function FingerprintFlow({ offenders, onEnrolled }) {
   const handleVerify = () => {
     if (!verifyOffenderId) return;
     navigate(`/offenders/${verifyOffenderId}`);
+  };
+
+  const handlePhotoCapture = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setPhotoError(null);
+    try {
+      setPhotoDataUrl(await fileToCompressedDataUrl(file));
+    } catch (err) {
+      setPhotoError(err.message);
+    }
   };
 
   const handleFinishEnrolment = async () => {
@@ -104,7 +118,8 @@ export default function FingerprintFlow({ offenders, onEnrolled }) {
         facility_id: Number(personal.facility_id),
         number_of_dependants: personal.number_of_dependants === '' ? null : Number(personal.number_of_dependants),
         admission_date: personal.admission_date || new Date().toISOString().slice(0, 10),
-        body_receipt_id: bodyReceiptId ? Number(bodyReceiptId) : null
+        body_receipt_id: bodyReceiptId ? Number(bodyReceiptId) : null,
+        photo: photoDataUrl || null
       });
       if (gang.prison_gang || gang.street_gang) {
         await api.updateGangAffiliation(created.id, gang);
@@ -410,10 +425,16 @@ export default function FingerprintFlow({ offenders, onEnrolled }) {
           {step === 3 && (
             <div className="wizard-panel">
               <label className="form-field">
-                <span>Upload Photo</span>
-                <input type="file" accept="image/*" onChange={(e) => setPhotoName(e.target.files[0]?.name || '')} />
+                <span>Take Photo</span>
+                <input type="file" accept="image/*" capture="environment" onChange={handlePhotoCapture} />
               </label>
-              {photoName && <p className="fingerprint-caption">Selected: {photoName} (not persisted in this prototype)</p>}
+              {photoDataUrl && (
+                <div className="photo-preview">
+                  <img src={photoDataUrl} alt="Captured offender" />
+                  <button type="button" className="btn-ghost" onClick={() => setPhotoDataUrl('')}>Retake</button>
+                </div>
+              )}
+              {photoError && <p className="form-error">{photoError}</p>}
               {submitError && <p className="form-error">{submitError}</p>}
             </div>
           )}
