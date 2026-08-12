@@ -5,63 +5,66 @@
 // both the live dashboard and the daily per-facility KPI reports).
 
 async function computeKPIs(sql, facilityId = null) {
+  const offenderScope = facilityId ? sql`facility_id = ${facilityId}` : sql`TRUE`;
+  const incidentScope = facilityId ? sql`facility_id = ${facilityId}` : sql`TRUE`;
+  const offenderJoinScope = facilityId ? sql`o.facility_id = ${facilityId}` : sql`TRUE`;
+
   const [
-    [{ n: totalOffenders }],
-    [{ n: escapeAttempts }],
-    [{ n: assaults }],
-    [{ n: assaultInjuries }],
-    [{ n: tbEverAffected }],
-    [{ n: tbCured }],
-    sitesLiveRows,
-    [{ n: totalFacilitiesAll }],
-    [{ n: pendingSync }],
-    totalCapacityRows,
-    [{ n: educationTotal }],
-    [{ n: educationCompleted }],
-    [{ n: releasedOffenders }]
+    [offenderRow],
+    [incidentRow],
+    [healthRow],
+    [educationRow],
+    facilityRows
   ] = await Promise.all([
+    sql`
+      SELECT
+        COUNT(*) AS total_offenders,
+        COUNT(*) FILTER (WHERE status = 'released') AS released_offenders
+      FROM offenders WHERE ${offenderScope}
+    `,
+    sql`
+      SELECT
+        COUNT(*) FILTER (WHERE type IN ('escape_attempt','escape') AND synced = 1) AS escape_attempts,
+        COUNT(*) FILTER (WHERE type = 'assault' AND synced = 1) AS assaults,
+        COUNT(*) FILTER (WHERE type = 'assault' AND injury = true AND synced = 1) AS assault_injuries,
+        COUNT(*) FILTER (WHERE synced = 1) AS synced_count,
+        COUNT(DISTINCT facility_id) FILTER (WHERE synced = 1) AS distinct_live_facilities,
+        COUNT(*) FILTER (WHERE synced = 0) AS pending_sync
+      FROM incidents WHERE ${incidentScope}
+    `,
+    sql`
+      SELECT
+        COUNT(*) FILTER (WHERE h.tb_status IN ('active','cured')) AS tb_ever_affected,
+        COUNT(*) FILTER (WHERE h.tb_status = 'cured') AS tb_cured
+      FROM health_records h JOIN offenders o ON o.id = h.offender_id
+      WHERE ${offenderJoinScope}
+    `,
+    sql`
+      SELECT
+        COUNT(*) AS education_total,
+        COUNT(*) FILTER (WHERE e.status = 'completed') AS education_completed
+      FROM education_records e JOIN offenders o ON o.id = e.offender_id
+      WHERE ${offenderJoinScope}
+    `,
     facilityId
-      ? sql`SELECT COUNT(*) AS n FROM offenders WHERE facility_id = ${facilityId}`
-      : sql`SELECT COUNT(*) AS n FROM offenders`,
-    facilityId
-      ? sql`SELECT COUNT(*) AS n FROM incidents WHERE type IN ('escape_attempt','escape') AND synced = 1 AND facility_id = ${facilityId}`
-      : sql`SELECT COUNT(*) AS n FROM incidents WHERE type IN ('escape_attempt','escape') AND synced = 1`,
-    facilityId
-      ? sql`SELECT COUNT(*) AS n FROM incidents WHERE type = 'assault' AND synced = 1 AND facility_id = ${facilityId}`
-      : sql`SELECT COUNT(*) AS n FROM incidents WHERE type = 'assault' AND synced = 1`,
-    facilityId
-      ? sql`SELECT COUNT(*) AS n FROM incidents WHERE type = 'assault' AND injury = true AND synced = 1 AND facility_id = ${facilityId}`
-      : sql`SELECT COUNT(*) AS n FROM incidents WHERE type = 'assault' AND injury = true AND synced = 1`,
-    facilityId
-      ? sql`SELECT COUNT(*) AS n FROM health_records h JOIN offenders o ON o.id = h.offender_id WHERE h.tb_status IN ('active','cured') AND o.facility_id = ${facilityId}`
-      : sql`SELECT COUNT(*) AS n FROM health_records h WHERE h.tb_status IN ('active','cured')`,
-    facilityId
-      ? sql`SELECT COUNT(*) AS n FROM health_records h JOIN offenders o ON o.id = h.offender_id WHERE h.tb_status = 'cured' AND o.facility_id = ${facilityId}`
-      : sql`SELECT COUNT(*) AS n FROM health_records h WHERE h.tb_status = 'cured'`,
-    facilityId
-      ? sql`SELECT COUNT(*) AS n FROM incidents WHERE synced = 1 AND facility_id = ${facilityId}`
-      : sql`SELECT COUNT(DISTINCT facility_id) AS n FROM incidents WHERE synced = 1`,
-    sql`SELECT COUNT(*) AS n FROM facilities`,
-    facilityId
-      ? sql`SELECT COUNT(*) AS n FROM incidents WHERE synced = 0 AND facility_id = ${facilityId}`
-      : sql`SELECT COUNT(*) AS n FROM incidents WHERE synced = 0`,
-    facilityId
-      ? sql`SELECT COALESCE(capacity, 0) AS n FROM facilities WHERE id = ${facilityId}`
-      : sql`SELECT COALESCE(SUM(capacity), 0) AS n FROM facilities`,
-    facilityId
-      ? sql`SELECT COUNT(*) AS n FROM education_records e JOIN offenders o ON o.id = e.offender_id WHERE o.facility_id = ${facilityId}`
-      : sql`SELECT COUNT(*) AS n FROM education_records e`,
-    facilityId
-      ? sql`SELECT COUNT(*) AS n FROM education_records e JOIN offenders o ON o.id = e.offender_id WHERE e.status = 'completed' AND o.facility_id = ${facilityId}`
-      : sql`SELECT COUNT(*) AS n FROM education_records e WHERE e.status = 'completed'`,
-    facilityId
-      ? sql`SELECT COUNT(*) AS n FROM offenders WHERE status = 'released' AND facility_id = ${facilityId}`
-      : sql`SELECT COUNT(*) AS n FROM offenders WHERE status = 'released'`
+      ? sql`SELECT COALESCE(capacity, 0) AS capacity FROM facilities WHERE id = ${facilityId}`
+      : sql`SELECT COUNT(*) AS total_facilities, COALESCE(SUM(capacity), 0) AS total_capacity FROM facilities`
   ]);
 
-  const sitesLive = facilityId ? (sitesLiveRows[0].n > 0 ? 1 : 0) : sitesLiveRows[0].n;
-  const totalFacilities = facilityId ? 1 : totalFacilitiesAll;
-  const totalCapacity = (totalCapacityRows[0] || { n: 0 }).n;
+  const totalOffenders = offenderRow.total_offenders;
+  const releasedOffenders = offenderRow.released_offenders;
+  const escapeAttempts = incidentRow.escape_attempts;
+  const assaults = incidentRow.assaults;
+  const assaultInjuries = incidentRow.assault_injuries;
+  const pendingSync = incidentRow.pending_sync;
+  const tbEverAffected = healthRow.tb_ever_affected;
+  const tbCured = healthRow.tb_cured;
+  const educationTotal = educationRow.education_total;
+  const educationCompleted = educationRow.education_completed;
+
+  const sitesLive = facilityId ? (incidentRow.synced_count > 0 ? 1 : 0) : incidentRow.distinct_live_facilities;
+  const totalFacilities = facilityId ? 1 : facilityRows[0].total_facilities;
+  const totalCapacity = facilityId ? facilityRows[0].capacity : facilityRows[0].total_capacity;
 
   const escapeRate = totalOffenders > 0 ? escapeAttempts / totalOffenders : 0;
   const assaultInjuryRate = assaults > 0 ? assaultInjuries / assaults : 0;

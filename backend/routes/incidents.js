@@ -4,11 +4,13 @@ const sql = require('../db');
 const router = express.Router();
 
 router.get('/', async (req, res) => {
+  const facilityId = req.user && req.user.facility_id;
   const incidents = await sql`
     SELECT i.*, o.name AS offender_name, f.name AS facility_name
     FROM incidents i
     JOIN offenders o ON o.id = i.offender_id
     JOIN facilities f ON f.id = i.facility_id
+    ${facilityId ? sql`WHERE i.facility_id = ${facilityId}` : sql``}
     ORDER BY i.timestamp DESC
   `;
   res.json(incidents);
@@ -16,12 +18,14 @@ router.get('/', async (req, res) => {
 
 // The offline outbox: incidents currently queued (synced = 0).
 router.get('/outbox', async (req, res) => {
+  const facilityId = req.user && req.user.facility_id;
   const queued = await sql`
     SELECT i.*, o.name AS offender_name, f.name AS facility_name
     FROM incidents i
     JOIN offenders o ON o.id = i.offender_id
     JOIN facilities f ON f.id = i.facility_id
     WHERE i.synced = 0
+    ${facilityId ? sql`AND i.facility_id = ${facilityId}` : sql``}
     ORDER BY i.timestamp DESC
   `;
   res.json(queued);
