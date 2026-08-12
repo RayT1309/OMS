@@ -7,13 +7,15 @@ router.get('/', async (req, res) => {
   const q = (req.query.q || '').trim();
   if (q.length < 2) return res.json([]);
   const like = `%${q}%`;
+  const facilityId = req.user && req.user.facility_id;
 
   const [offenders, warrants] = await Promise.all([
     sql`
       SELECT o.id, o.name, o.id_number, f.name AS facility_name
       FROM offenders o
       JOIN facilities f ON f.id = o.facility_id
-      WHERE o.name ILIKE ${like} OR o.id_number ILIKE ${like} OR o.registration_number ILIKE ${like}
+      WHERE (o.name ILIKE ${like} OR o.id_number ILIKE ${like} OR o.registration_number ILIKE ${like})
+      ${facilityId ? sql`AND o.facility_id = ${facilityId}` : sql``}
       ORDER BY o.name
       LIMIT 8
     `,
@@ -21,7 +23,8 @@ router.get('/', async (req, res) => {
       SELECT w.id, w.offender_id, w.warrant_type, w.warrant_category, o.name AS offender_name
       FROM warrants w
       JOIN offenders o ON o.id = w.offender_id
-      WHERE w.warrant_type ILIKE ${like} OR w.charges ILIKE ${like} OR w.offence ILIKE ${like} OR o.name ILIKE ${like}
+      WHERE (w.warrant_type ILIKE ${like} OR w.charges ILIKE ${like} OR w.offence ILIKE ${like} OR o.name ILIKE ${like})
+      ${facilityId ? sql`AND o.facility_id = ${facilityId}` : sql``}
       ORDER BY w.created_at DESC
       LIMIT 5
     `

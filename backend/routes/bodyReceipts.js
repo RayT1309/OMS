@@ -4,10 +4,12 @@ const sql = require('../db');
 const router = express.Router();
 
 router.get('/', async (req, res) => {
+  const facilityId = req.user && req.user.facility_id;
   const receipts = await sql`
     SELECT b.*, f.name AS facility_name
     FROM body_receipts b
     JOIN facilities f ON f.id = b.facility_id
+    ${facilityId ? sql`WHERE b.facility_id = ${facilityId}` : sql``}
     ORDER BY b.created_at DESC
   `;
   res.json(receipts);

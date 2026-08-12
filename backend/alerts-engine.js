@@ -7,8 +7,9 @@ function daysBetween(dateStr) {
   return Math.ceil(ms / (1000 * 60 * 60 * 24));
 }
 
-async function computeAlerts(sql) {
+async function computeAlerts(sql, facilityId = null) {
   const alerts = [];
+  const facilityScope = facilityId ? sql`AND o.facility_id = ${facilityId}` : sql``;
 
   // Court dates coming up within 7 days (or already passed and still "pending").
   const upcomingCourt = await sql`
@@ -16,6 +17,7 @@ async function computeAlerts(sql) {
     FROM court_cases c
     JOIN offenders o ON o.id = c.offender_id
     WHERE c.status = 'pending' AND c.next_court_date IS NOT NULL
+    ${facilityScope}
   `;
   upcomingCourt.forEach((c) => {
     const days = daysBetween(c.next_court_date);
@@ -36,6 +38,7 @@ async function computeAlerts(sql) {
     FROM parole_records p
     JOIN offenders o ON o.id = p.offender_id
     WHERE p.outcome = 'scheduled'
+    ${facilityScope}
   `;
   upcomingParole.forEach((p) => {
     const days = daysBetween(p.hearing_date);
@@ -58,6 +61,7 @@ async function computeAlerts(sql) {
     WHERE w.custody_until_date IS NOT NULL
       AND w.custody_until_date::date < current_date
       AND NOT EXISTS (SELECT 1 FROM releases r WHERE r.offender_id = w.offender_id)
+    ${facilityScope}
   `;
   expiredCustody.forEach((w) => {
     alerts.push({
@@ -75,6 +79,7 @@ async function computeAlerts(sql) {
     FROM offenders o
     WHERE o.status = 'incarcerated'
       AND NOT EXISTS (SELECT 1 FROM section_d_assessments s WHERE s.offender_id = o.id)
+    ${facilityId ? sql`AND o.facility_id = ${facilityId}` : sql``}
   `;
   missingSecurityAssessment.forEach((o) => {
     alerts.push({

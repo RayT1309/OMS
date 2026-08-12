@@ -3,6 +3,24 @@ const sql = require('../db');
 
 const router = express.Router();
 
+// Every route below takes an offender :id. Load it once here and refuse
+// access if the offender belongs to a different facility than the
+// requesting user's — mirrors the facilityId filter already used on the
+// list route, but for by-id access where a route param can name any
+// offender regardless of who's asking.
+router.param('id', async (req, res, next, id) => {
+  const [offender] = await sql`SELECT id, facility_id FROM offenders WHERE id = ${id}`;
+  if (!offender) return res.status(404).json({ error: 'Offender not found' });
+
+  const facilityId = req.user && req.user.facility_id;
+  if (facilityId && offender.facility_id !== facilityId) {
+    return res.status(404).json({ error: 'Offender not found' });
+  }
+
+  req.offender = offender;
+  next();
+});
+
 const OFFENDER_COLUMNS = `
   o.id, o.name, o.admission_date, o.status, o.next_action,
   o.id_number, o.next_of_kin_name, o.next_of_kin_contact, o.warrant_type,
@@ -235,9 +253,6 @@ router.put('/:id', async (req, res) => {
 });
 
 router.post('/:id/screenings', async (req, res) => {
-  const [offender] = await sql`SELECT id FROM offenders WHERE id = ${req.params.id}`;
-  if (!offender) return res.status(404).json({ error: 'Offender not found' });
-
   const { screening_type, date_screened, signs_symptoms, lab_test, lab_result, cd4_count, j138_case, referred_to } = req.body;
   if (!screening_type || !date_screened) {
     return res.status(400).json({ error: 'screening_type and date_screened are required' });
@@ -259,9 +274,6 @@ router.post('/:id/screenings', async (req, res) => {
 });
 
 router.put('/:id/gang', async (req, res) => {
-  const [offender] = await sql`SELECT id FROM offenders WHERE id = ${req.params.id}`;
-  if (!offender) return res.status(404).json({ error: 'Offender not found' });
-
   const { prison_gang, prison_gang_rank, street_gang, street_gang_rank } = req.body;
   const row = {
     offender_id: req.params.id,
@@ -285,9 +297,6 @@ router.put('/:id/gang', async (req, res) => {
 });
 
 router.post('/:id/property', async (req, res) => {
-  const [offender] = await sql`SELECT id FROM offenders WHERE id = ${req.params.id}`;
-  if (!offender) return res.status(404).json({ error: 'Offender not found' });
-
   const { item_description, condition, estimated_value, bag_number } = req.body;
   if (!item_description || !condition) {
     return res.status(400).json({ error: 'item_description and condition are required' });
@@ -321,9 +330,6 @@ const WARRANT_FIELDS = [
 ];
 
 router.post('/:id/warrants', async (req, res) => {
-  const [offender] = await sql`SELECT id FROM offenders WHERE id = ${req.params.id}`;
-  if (!offender) return res.status(404).json({ error: 'Offender not found' });
-
   const { warrant_category, warrant_type } = req.body;
   if (!warrant_category || !warrant_type) {
     return res.status(400).json({ error: 'warrant_category and warrant_type are required' });
@@ -356,9 +362,6 @@ const HEALTH_ASSESSMENT_FIELDS = [
 ];
 
 router.post('/:id/health-assessments', async (req, res) => {
-  const [offender] = await sql`SELECT id FROM offenders WHERE id = ${req.params.id}`;
-  if (!offender) return res.status(404).json({ error: 'Offender not found' });
-
   const { assessment_date } = req.body;
   if (!assessment_date) {
     return res.status(400).json({ error: 'assessment_date is required' });
@@ -425,9 +428,6 @@ const SECTION_A_TEXT_FIELDS = [
 ];
 
 router.post('/:id/section-a-assessments', async (req, res) => {
-  const [offender] = await sql`SELECT id FROM offenders WHERE id = ${req.params.id}`;
-  if (!offender) return res.status(404).json({ error: 'Offender not found' });
-
   const { assessment_date } = req.body;
   if (!assessment_date) {
     return res.status(400).json({ error: 'assessment_date is required' });
@@ -461,9 +461,6 @@ const SECTION_B_FIELDS = [
 ];
 
 router.post('/:id/section-b-assessments', async (req, res) => {
-  const [offender] = await sql`SELECT id FROM offenders WHERE id = ${req.params.id}`;
-  if (!offender) return res.status(404).json({ error: 'Offender not found' });
-
   const { assessment_date } = req.body;
   if (!assessment_date) {
     return res.status(400).json({ error: 'assessment_date is required' });
@@ -512,9 +509,6 @@ const SECTION_C_TEXT_FIELDS = [
 ];
 
 router.post('/:id/section-c-assessments', async (req, res) => {
-  const [offender] = await sql`SELECT id FROM offenders WHERE id = ${req.params.id}`;
-  if (!offender) return res.status(404).json({ error: 'Offender not found' });
-
   const { assessment_date } = req.body;
   if (!assessment_date) {
     return res.status(400).json({ error: 'assessment_date is required' });
@@ -546,9 +540,6 @@ const SECTION_D_TEXT_FIELDS = [
 ];
 
 router.post('/:id/section-d-assessments', async (req, res) => {
-  const [offender] = await sql`SELECT id FROM offenders WHERE id = ${req.params.id}`;
-  if (!offender) return res.status(404).json({ error: 'Offender not found' });
-
   const { assessment_date } = req.body;
   if (!assessment_date) {
     return res.status(400).json({ error: 'assessment_date is required' });
@@ -571,9 +562,6 @@ const CSP_ITEM_FIELDS = [
 ];
 
 router.post('/:id/correctional-sentence-plans', async (req, res) => {
-  const [offender] = await sql`SELECT id FROM offenders WHERE id = ${req.params.id}`;
-  if (!offender) return res.status(404).json({ error: 'Offender not found' });
-
   const { plan_date, comments, additional_risk_needs, offender_accepted, items } = req.body;
   if (!plan_date) {
     return res.status(400).json({ error: 'plan_date is required' });
@@ -606,9 +594,6 @@ router.post('/:id/correctional-sentence-plans', async (req, res) => {
 });
 
 router.post('/:id/releases', async (req, res) => {
-  const [offender] = await sql`SELECT id FROM offenders WHERE id = ${req.params.id}`;
-  if (!offender) return res.status(404).json({ error: 'Offender not found' });
-
   const { release_date, release_type, amount_paid, date_paid } = req.body;
   if (!release_date || !release_type) {
     return res.status(400).json({ error: 'release_date and release_type are required' });

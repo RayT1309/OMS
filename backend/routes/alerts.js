@@ -5,7 +5,8 @@ const { computeAlerts } = require('../alerts-engine');
 const router = express.Router();
 
 router.get('/', async (req, res) => {
-  res.json(await computeAlerts(sql));
+  const facilityId = req.user && req.user.facility_id;
+  res.json(await computeAlerts(sql, facilityId));
 });
 
 module.exports = router;
