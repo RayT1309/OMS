@@ -1,0 +1,21 @@
+node_modules
+dist
+dist-ssr
+.DS_Store
+*.local
+
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+
+backend/oms.db
+backend/oms.db-shm
+backend/oms.db-wal
+
+.vercel
+
+DCS/
+dcs screens/
+*.docx

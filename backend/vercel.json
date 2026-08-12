@@ -1,0 +1,13 @@
+{
+  "framework": null,
+  "regions": ["fra1"],
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/[...path]" }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/generate-reports",
+      "schedule": "0 1 * * *"
+    }
+  ]
+}
