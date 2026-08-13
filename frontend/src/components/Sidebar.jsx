@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 
 function Icon({ path }) {
   return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       {path}
     </svg>
   );
@@ -30,22 +30,27 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   return (
-    <nav className="sidebar" aria-label="Primary">
-      <div className="sidebar-brand">OMS</div>
-      <ul className="sidebar-nav">
+    <nav className="sidebar-rail" aria-label="Primary">
+      <div className="sidebar-rail-brand" aria-hidden="true">OMS</div>
+      <ul className="sidebar-rail-nav">
         {NAV_ITEMS.map((item) =>
           item.active ? (
             <li key={item.label}>
-              <NavLink to={item.to} end className={({ isActive }) => (isActive ? 'sidebar-link is-active' : 'sidebar-link')}>
+              <NavLink
+                to={item.to}
+                end
+                className={({ isActive }) => (isActive ? 'sidebar-rail-link is-active' : 'sidebar-rail-link')}
+                aria-label={item.label}
+              >
                 {ICONS[item.label]}
-                {item.label}
+                <span className="sidebar-rail-tooltip">{item.label}</span>
               </NavLink>
             </li>
           ) : (
             <li key={item.label}>
-              <span className="sidebar-link is-disabled" title="Not implemented in this prototype">
+              <span className="sidebar-rail-link is-disabled" aria-label={item.label} title="Not implemented in this prototype">
                 {ICONS[item.label]}
-                {item.label}
+                <span className="sidebar-rail-tooltip">{item.label} · not implemented</span>
               </span>
             </li>
           )

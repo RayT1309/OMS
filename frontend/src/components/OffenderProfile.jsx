@@ -107,12 +107,22 @@ const WARRANT_TYPE_LABEL = {
   J1: 'J1 — Warrant of liberation'
 };
 
+const TABS = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'movements', label: 'Movements' },
+  { key: 'health', label: 'Health & Screenings' },
+  { key: 'assessments', label: 'Assessments' },
+  { key: 'history', label: 'History & Property' },
+  { key: 'documents', label: 'Documents' }
+];
+
 export default function OffenderProfile() {
   const { id } = useParams();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeModal, setActiveModal] = useState(null);
+  const [activeTab, setActiveTab] = useState('overview');
   const [gangDraft, setGangDraft] = useState({ prison_gang: '', prison_gang_rank: '', street_gang: '', street_gang_rank: '' });
   const [savingGang, setSavingGang] = useState(false);
   const [gangError, setGangError] = useState(null);
@@ -230,26 +240,57 @@ export default function OffenderProfile() {
   if (!profile) return null;
 
   return (
-    <div className="profile-page">
+    <div className="profile-page profile-page-tabbed">
       <Link to="/" className="back-link">&larr; Back to dashboard</Link>
 
-      <div className="panel profile-summary">
-        <div className="profile-summary-header">
-          {profile.photo_url ? (
-            <img src={profile.photo_url} alt={profile.name} className="offender-photo" />
-          ) : (
-            <div className="offender-photo offender-photo-placeholder" aria-hidden="true">
-              {profile.name.charAt(0)}
-            </div>
-          )}
-          <h2>{profile.name}</h2>
-          <span className={`status-pill status-${profile.status}`}>{STATUS_LABEL[profile.status]}</span>
+      <div className="panel profile-identity">
+        {profile.photo_url ? (
+          <img src={profile.photo_url} alt={profile.name} className="offender-photo" />
+        ) : (
+          <div className="offender-photo offender-photo-placeholder" aria-hidden="true">
+            {profile.name.charAt(0)}
+          </div>
+        )}
+        <div className="profile-identity-main">
+          <div className="profile-identity-title">
+            <h2>{profile.name}</h2>
+            <span className={`status-pill status-${profile.status}`}>{STATUS_LABEL[profile.status]}</span>
+            {profile.current_movement && (
+              <span className="status-pill status-out">
+                Out — {MOVEMENT_REASON_LABEL[profile.current_movement.reason]}
+              </span>
+            )}
+          </div>
+          <div className="profile-identity-facts">
+            <span><strong>Facility</strong> {profile.facility_name}</span>
+            <span><strong>ID Number</strong> {profile.id_number || '—'}</span>
+            <span><strong>Admitted</strong> {new Date(profile.admission_date).toLocaleDateString('en-ZA')}</span>
+            <span><strong>Next Action</strong> {profile.next_action || '—'}</span>
+          </div>
         </div>
+      </div>
+
+      <div className="profile-tabs" role="tablist">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === t.key}
+            className={activeTab === t.key ? 'profile-tab is-active' : 'profile-tab'}
+            onClick={() => setActiveTab(t.key)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="profile-tab-content">
+      {activeTab === 'overview' && (
+      <>
+      <div className="panel profile-section">
+        <h3>Personal Details</h3>
         <dl className="profile-fields">
-          <div><dt>Facility</dt><dd>{profile.facility_name}</dd></div>
-          <div><dt>Admission Date</dt><dd>{new Date(profile.admission_date).toLocaleDateString('en-ZA')}</dd></div>
-          <div><dt>Next Action</dt><dd>{profile.next_action || '—'}</dd></div>
-          <div><dt>ID Number</dt><dd>{profile.id_number || '—'}</dd></div>
           <div><dt>Warrant Type</dt><dd>{profile.warrant_type || '—'}</dd></div>
           <div><dt>Sentence Status</dt><dd>{SENTENCE_STATUS_LABEL[profile.sentence_status] || '—'}</dd></div>
           <div><dt>Nickname</dt><dd>{profile.nickname || '—'}</dd></div>
@@ -293,30 +334,33 @@ export default function OffenderProfile() {
         </dl>
       </div>
 
-      <div className="panel profile-section">
-        <h3>Photos</h3>
-        <div className="screening-actions">
-          <button type="button" className="btn-primary" onClick={() => setActiveModal('photo')}>
-            Add Photo
-          </button>
+      <div className="health-tiles">
+        <div className="health-tile">
+          <div className="health-tile-label">Nutrition</div>
+          <div className="health-tile-value capitalize">{profile.nutrition?.diet_type || '—'}</div>
         </div>
-        {profile.photos.length === 0 ? (
-          <p className="empty">No photos on record.</p>
-        ) : (
-          <div className="photo-gallery">
-            {profile.photos.map((p) => (
-              <div className="photo-gallery-item" key={p.id}>
-                <img src={p.photo_url} alt={p.kind === 'mugshot' ? 'Mugshot' : 'Evidence photo'} />
-                <span className="profile-list-meta">
-                  {p.kind === 'mugshot' ? 'Mugshot' : 'Evidence'} · {new Date(p.created_at).toLocaleDateString('en-ZA')}
-                </span>
-                {p.note && <p className="profile-list-note">{p.note}</p>}
-              </div>
-            ))}
+        <div className="health-tile">
+          <div className="health-tile-label">Death</div>
+          <div className="health-tile-value">{profile.status === 'released' ? '—' : 'None'}</div>
+        </div>
+        <div className="health-tile">
+          <div className="health-tile-label">Diabetic</div>
+          <div className="health-tile-value">
+            {profile.nutrition?.special_requirements?.toLowerCase().includes('diabet') ? 'Yes' : 'No'}
           </div>
-        )}
+        </div>
+        <div className="health-tile">
+          <div className="health-tile-label">HIV Status</div>
+          <div className="health-tile-value">
+            {profile.health ? (profile.health.hiv_positive ? 'Positive' : 'Negative') : '—'}
+          </div>
+        </div>
       </div>
+      </>
+      )}
 
+      {activeTab === 'movements' && (
+      <>
       <div className="panel profile-section">
         <h3>Movements</h3>
         {profile.current_movement ? (
@@ -361,50 +405,6 @@ export default function OffenderProfile() {
         )}
       </div>
 
-      <div className="health-tiles">
-        <div className="health-tile">
-          <div className="health-tile-label">Nutrition</div>
-          <div className="health-tile-value capitalize">{profile.nutrition?.diet_type || '—'}</div>
-        </div>
-        <div className="health-tile">
-          <div className="health-tile-label">Death</div>
-          <div className="health-tile-value">{profile.status === 'released' ? '—' : 'None'}</div>
-        </div>
-        <div className="health-tile">
-          <div className="health-tile-label">Diabetic</div>
-          <div className="health-tile-value">
-            {profile.nutrition?.special_requirements?.toLowerCase().includes('diabet') ? 'Yes' : 'No'}
-          </div>
-        </div>
-        <div className="health-tile">
-          <div className="health-tile-label">HIV Status</div>
-          <div className="health-tile-value">
-            {profile.health ? (profile.health.hiv_positive ? 'Positive' : 'Negative') : '—'}
-          </div>
-        </div>
-      </div>
-
-      <div className="panel profile-section">
-        <h3>Risk Assessments</h3>
-        {profile.risk_assessments.length === 0 ? (
-          <p className="empty">No risk assessments on record.</p>
-        ) : (
-          <ul className="profile-list">
-            {profile.risk_assessments.map((r) => (
-              <li key={r.id}>
-                <span className="profile-list-title">
-                  {ASSESSMENT_TYPE_LABEL[r.assessment_type]} — {RISK_LEVEL_LABEL[r.risk_level]} risk
-                </span>
-                <span className="profile-list-meta">
-                  {r.assessor ? `${r.assessor} · ` : ''}{new Date(r.assessment_date).toLocaleDateString('en-ZA')}
-                </span>
-                {r.notes && <p className="profile-list-note">{r.notes}</p>}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
       <div className="panel profile-section">
         <h3>Pending Court Cases</h3>
         {profile.court_cases.length === 0 ? (
@@ -425,7 +425,36 @@ export default function OffenderProfile() {
           </ul>
         )}
       </div>
+      </>
+      )}
 
+      {activeTab === 'assessments' && (
+      <>
+      <div className="panel profile-section">
+        <h3>Risk Assessments</h3>
+        {profile.risk_assessments.length === 0 ? (
+          <p className="empty">No risk assessments on record.</p>
+        ) : (
+          <ul className="profile-list">
+            {profile.risk_assessments.map((r) => (
+              <li key={r.id}>
+                <span className="profile-list-title">
+                  {ASSESSMENT_TYPE_LABEL[r.assessment_type]} — {RISK_LEVEL_LABEL[r.risk_level]} risk
+                </span>
+                <span className="profile-list-meta">
+                  {r.assessor ? `${r.assessor} · ` : ''}{new Date(r.assessment_date).toLocaleDateString('en-ZA')}
+                </span>
+                {r.notes && <p className="profile-list-note">{r.notes}</p>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      </>
+      )}
+
+      {activeTab === 'history' && (
+      <>
       <div className="panel profile-section">
         <h3>Criminal History</h3>
         {profile.criminal_history.length === 0 ? (
@@ -466,7 +495,11 @@ export default function OffenderProfile() {
           </ul>
         )}
       </div>
+      </>
+      )}
 
+      {activeTab === 'health' && (
+      <>
       <div className="panel profile-section">
         <h3>Health</h3>
         {profile.health ? (
@@ -597,7 +630,11 @@ export default function OffenderProfile() {
           </ul>
         )}
       </div>
+      </>
+      )}
 
+      {activeTab === 'history' && (
+      <>
       <div className="panel profile-section">
         <h3>Incident History</h3>
         {profile.incidents.length === 0 ? (
@@ -737,7 +774,11 @@ export default function OffenderProfile() {
           </ul>
         )}
       </div>
+      </>
+      )}
 
+      {activeTab === 'assessments' && (
+      <>
       <div className="panel profile-section">
         <h3>Comprehensive Risk &amp; Needs Assessment — Section A: Crime and Criminality</h3>
         <div className="screening-actions">
@@ -920,6 +961,34 @@ export default function OffenderProfile() {
           </ul>
         )}
       </div>
+      </>
+      )}
+
+      {activeTab === 'documents' && (
+      <>
+      <div className="panel profile-section">
+        <h3>Photos</h3>
+        <div className="screening-actions">
+          <button type="button" className="btn-primary" onClick={() => setActiveModal('photo')}>
+            Add Photo
+          </button>
+        </div>
+        {profile.photos.length === 0 ? (
+          <p className="empty">No photos on record.</p>
+        ) : (
+          <div className="photo-gallery">
+            {profile.photos.map((p) => (
+              <div className="photo-gallery-item" key={p.id}>
+                <img src={p.photo_url} alt={p.kind === 'mugshot' ? 'Mugshot' : 'Evidence photo'} />
+                <span className="profile-list-meta">
+                  {p.kind === 'mugshot' ? 'Mugshot' : 'Evidence'} · {new Date(p.created_at).toLocaleDateString('en-ZA')}
+                </span>
+                {p.note && <p className="profile-list-note">{p.note}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="panel profile-section">
         <h3>Releases</h3>
@@ -949,6 +1018,9 @@ export default function OffenderProfile() {
             ))}
           </ul>
         )}
+      </div>
+      </>
+      )}
       </div>
 
       {activeModal && !['property', 'warrant', 'health_assessment', 'section_a_assessment', 'section_b_assessment', 'section_c_assessment', 'section_d_assessment', 'correctional_sentence_plan', 'release', 'photo', 'movement'].includes(activeModal) && (
