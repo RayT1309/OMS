@@ -93,7 +93,8 @@ router.get('/:id/profile', async (req, res) => {
     sectionDAssessments,
     csPlans,
     releases,
-    photos
+    photos,
+    movements
   ] = await Promise.all([
     sql`SELECT * FROM health_records WHERE offender_id = ${id}`,
     sql`SELECT * FROM education_records WHERE offender_id = ${id} ORDER BY id`,
@@ -116,7 +117,8 @@ router.get('/:id/profile', async (req, res) => {
     sql`SELECT * FROM section_d_assessments WHERE offender_id = ${id} ORDER BY assessment_date DESC`,
     sql`SELECT * FROM correctional_sentence_plans WHERE offender_id = ${id} ORDER BY plan_date DESC`,
     sql`SELECT * FROM releases WHERE offender_id = ${id} ORDER BY release_date DESC`,
-    sql`SELECT * FROM offender_photos WHERE offender_id = ${id} ORDER BY created_at DESC`
+    sql`SELECT * FROM offender_photos WHERE offender_id = ${id} ORDER BY created_at DESC`,
+    sql`SELECT * FROM offender_movements WHERE offender_id = ${id} ORDER BY out_at DESC`
   ]);
 
   const correctionalSentencePlans = await Promise.all(
@@ -149,7 +151,9 @@ router.get('/:id/profile', async (req, res) => {
     section_d_assessments: sectionDAssessments,
     correctional_sentence_plans: correctionalSentencePlans,
     releases,
-    photos
+    photos,
+    movements,
+    current_movement: movements.find((m) => !m.returned_at) || null
   });
 });
 
@@ -643,7 +647,43 @@ router.post('/:id/releases', async (req, res) => {
     created_at: new Date().toISOString()
   };
   const [created] = await sql`INSERT INTO releases ${sql(row)} RETURNING *`;
+  await sql`UPDATE offenders SET status = 'released' WHERE id = ${req.params.id}`;
   res.status(201).json(created);
+});
+
+router.post('/:id/movements', async (req, res) => {
+  const { reason, expected_return, note, court_case_id } = req.body;
+  if (reason !== 'court' && reason !== 'hospital' && reason !== 'other') {
+    return res.status(400).json({ error: "reason must be 'court', 'hospital', or 'other'" });
+  }
+
+  const [alreadyOut] = await sql`
+    SELECT id FROM offender_movements WHERE offender_id = ${req.params.id} AND returned_at IS NULL
+  `;
+  if (alreadyOut) return res.status(409).json({ error: 'Offender is already booked out' });
+
+  const [created] = await sql`
+    INSERT INTO offender_movements ${sql({
+      offender_id: req.params.id,
+      reason,
+      court_case_id: court_case_id || null,
+      expected_return: expected_return || null,
+      note: note || null
+    })}
+    RETURNING *
+  `;
+  res.status(201).json(created);
+});
+
+router.post('/:id/movements/:movementId/return', async (req, res) => {
+  const [updated] = await sql`
+    UPDATE offender_movements
+    SET returned_at = now()
+    WHERE id = ${req.params.movementId} AND offender_id = ${req.params.id} AND returned_at IS NULL
+    RETURNING *
+  `;
+  if (!updated) return res.status(404).json({ error: 'No open movement found' });
+  res.json(updated);
 });
 
 router.delete('/:id', async (req, res) => {

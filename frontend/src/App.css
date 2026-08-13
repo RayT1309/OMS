@@ -440,14 +440,23 @@ tbody tr:hover td { background: color-mix(in srgb, var(--color-primary) 6%, tran
 .status-incarcerated { background: var(--color-destructive-bg); color: #b91c1c; }
 .status-community_corrections { background: var(--color-warning-bg); color: #92400e; }
 .status-released { background: var(--color-success-bg); color: #166534; }
+.status-out { background: var(--color-warning-bg); color: #92400e; }
 
 :root[data-theme="dark"] .status-incarcerated { color: #fca5a5; }
 :root[data-theme="dark"] .status-community_corrections { color: #fcd34d; }
 :root[data-theme="dark"] .status-released { color: #86efac; }
+:root[data-theme="dark"] .status-out { color: #fcd34d; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .status-incarcerated { color: #fca5a5; }
   :root:not([data-theme="light"]) .status-community_corrections { color: #fcd34d; }
   :root:not([data-theme="light"]) .status-released { color: #86efac; }
+  :root:not([data-theme="light"]) .status-out { color: #fcd34d; }
+}
+
+.movement-banner {
+  display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap;
+  margin-bottom: var(--space-sm); padding: var(--space-sm); border-radius: 8px;
+  background: var(--color-warning-bg);
 }
 
 .panel-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-sm); flex-wrap: wrap; gap: var(--space-sm); }

@@ -12,6 +12,7 @@ import AddSectionDAssessmentModal from './AddSectionDAssessmentModal';
 import AddCorrectionalSentencePlanModal from './AddCorrectionalSentencePlanModal';
 import AddReleaseModal from './AddReleaseModal';
 import AddPhotoModal from './AddPhotoModal';
+import BookOutModal from './BookOutModal';
 
 const SENTENCE_STATUS_LABEL = {
   sentenced: 'Sentenced',
@@ -69,6 +70,12 @@ const RISK_LEVEL_LABEL = {
   low: 'Low',
   medium: 'Medium',
   high: 'High'
+};
+
+const MOVEMENT_REASON_LABEL = {
+  court: 'Court Appearance',
+  hospital: 'Hospital',
+  other: 'Other'
 };
 
 const COURT_CASE_STATUS_LABEL = {
@@ -194,6 +201,17 @@ export default function OffenderProfile() {
     setActiveModal(null);
   };
 
+  const handleBookOut = async (movement) => {
+    await api.bookOutOffender(id, movement);
+    await loadProfile();
+    setActiveModal(null);
+  };
+
+  const handleBookIn = async (movementId) => {
+    await api.bookInOffender(id, movementId);
+    await loadProfile();
+  };
+
   const handleSaveGang = async () => {
     setSavingGang(true);
     setGangError(null);
@@ -296,6 +314,50 @@ export default function OffenderProfile() {
               </div>
             ))}
           </div>
+        )}
+      </div>
+
+      <div className="panel profile-section">
+        <h3>Movements</h3>
+        {profile.current_movement ? (
+          <div className="movement-banner">
+            <span className="status-pill status-out">
+              Currently out — {MOVEMENT_REASON_LABEL[profile.current_movement.reason]}
+            </span>
+            <span className="profile-list-meta">
+              Since {new Date(profile.current_movement.out_at).toLocaleString('en-ZA')}
+              {profile.current_movement.expected_return
+                ? ` · Expected back ${new Date(profile.current_movement.expected_return).toLocaleString('en-ZA')}`
+                : ''}
+            </span>
+            <button type="button" className="btn-primary" onClick={() => handleBookIn(profile.current_movement.id)}>
+              Book In
+            </button>
+          </div>
+        ) : (
+          <div className="screening-actions">
+            <button type="button" className="btn-primary" onClick={() => setActiveModal('movement')}>
+              Book Out
+            </button>
+          </div>
+        )}
+        {profile.movements.length === 0 ? (
+          <p className="empty">No movement history.</p>
+        ) : (
+          <ul className="profile-list">
+            {profile.movements.map((m) => (
+              <li key={m.id}>
+                <span className="profile-list-title">
+                  {MOVEMENT_REASON_LABEL[m.reason]} — {m.returned_at ? 'Returned' : 'Out'}
+                </span>
+                <span className="profile-list-meta">
+                  Out: {new Date(m.out_at).toLocaleString('en-ZA')}
+                  {m.returned_at ? ` · In: ${new Date(m.returned_at).toLocaleString('en-ZA')}` : ''}
+                </span>
+                {m.note && <p className="profile-list-note">{m.note}</p>}
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 
@@ -889,7 +951,7 @@ export default function OffenderProfile() {
         )}
       </div>
 
-      {activeModal && !['property', 'warrant', 'health_assessment', 'section_a_assessment', 'section_b_assessment', 'section_c_assessment', 'section_d_assessment', 'correctional_sentence_plan', 'release', 'photo'].includes(activeModal) && (
+      {activeModal && !['property', 'warrant', 'health_assessment', 'section_a_assessment', 'section_b_assessment', 'section_c_assessment', 'section_d_assessment', 'correctional_sentence_plan', 'release', 'photo', 'movement'].includes(activeModal) && (
         <AddScreeningModal
           screeningType={activeModal}
           onClose={() => setActiveModal(null)}
@@ -964,6 +1026,14 @@ export default function OffenderProfile() {
         <AddPhotoModal
           onClose={() => setActiveModal(null)}
           onSubmit={handleAddPhoto}
+        />
+      )}
+
+      {activeModal === 'movement' && (
+        <BookOutModal
+          courtCases={profile.court_cases}
+          onClose={() => setActiveModal(null)}
+          onSubmit={handleBookOut}
         />
       )}
     </div>

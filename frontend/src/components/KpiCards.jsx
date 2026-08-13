@@ -7,6 +7,11 @@ const PILLARS = [
     label: 'Incarceration',
     cards: [
       {
+        key: 'physically_present', label: 'Headcount', format: (v) => v,
+        sub: (k) => `${k.currently_out} out (court/hospital) / ${k.incarcerated_offenders} incarcerated`,
+        status: () => 'ok'
+      },
+      {
         key: 'escape_rate', label: 'Escape Rate', format: (v) => `${(v * 100).toFixed(1)}%`,
         sub: (k) => `${k.escape_attempts} escapes/attempts / ${k.total_offenders} offenders`,
         status: (v) => (v >= 0.3 ? 'critical' : v >= 0.15 ? 'warning' : 'ok')
@@ -18,7 +23,7 @@ const PILLARS = [
       },
       {
         key: 'overcrowding_rate', label: 'Overcrowding', format: (v) => `${(v * 100).toFixed(0)}%`,
-        sub: (k) => `${k.total_offenders} offenders / ${k.total_capacity} approved capacity`,
+        sub: (k) => `${k.physically_present} physically present / ${k.total_capacity} approved capacity`,
         status: (v) => (v > 1 ? 'critical' : v >= 0.9 ? 'warning' : 'ok')
       }
     ]
