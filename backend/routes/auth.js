@@ -17,7 +17,7 @@ router.post('/login', async (req, res) => {
   }
 
   const rows = await sql`
-    SELECT p.id, p.email, p.name, p.role, p.facility_id, f.name AS facility_name
+    SELECT p.id, p.email, p.name, p.role, p.facility_id, p.scope, p.region, f.name AS facility_name
     FROM profiles p
     LEFT JOIN facilities f ON f.id = p.facility_id
     WHERE p.id = ${data.user.id}
@@ -33,7 +33,9 @@ router.post('/login', async (req, res) => {
       name: profile.name,
       role: profile.role,
       facility_id: profile.facility_id,
-      facility_name: profile.facility_name
+      facility_name: profile.facility_name,
+      scope: profile.scope,
+      region: profile.region
     }
   });
 });

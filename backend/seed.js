@@ -204,22 +204,25 @@ async function seed() {
   // Demo users are created through Supabase Auth (not a local table); the
   // on_auth_user_created trigger creates the matching profiles row, and we
   // then set facility_id since sign-up metadata only carries name/role.
+  // 'scope' governs how KPI reporting rolls up: 'facility' users (the
+  // default) see one management area; 'regional' users roll up every
+  // facility in their province (regional-commissioner view); 'national'
+  // users roll up every facility (head-office view).
   const demoUsers = [
-    { email: 'admin@dcs.gov.za', name: 'Nomvula Dlamini', password: 'admin123', role: 'admin', facility_id: null },
-    { email: 'official@dcs.gov.za', name: 'Sipho Mthembu', password: 'official123', role: 'official', facility_id: pollsmoorId },
-    { email: 'clerk@dcs.gov.za', name: 'Anele Botha', password: 'clerk123', role: 'clerk', facility_id: pollsmoorId }
+    { email: 'admin@dcs.gov.za', name: 'Nomvula Dlamini', password: 'admin123', role: 'admin', facility_id: null, scope: 'national', region: null },
+    { email: 'official@dcs.gov.za', name: 'Sipho Mthembu', password: 'official123', role: 'official', facility_id: pollsmoorId, scope: 'facility', region: null },
+    { email: 'clerk@dcs.gov.za', name: 'Anele Botha', password: 'clerk123', role: 'clerk', facility_id: pollsmoorId, scope: 'facility', region: null },
+    { email: 'regional@dcs.gov.za', name: 'Nolwazi Khumalo', password: 'regional123', role: 'official', facility_id: null, scope: 'regional', region: 'Western Cape' }
   ];
   for (const u of demoUsers) {
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email: u.email,
       password: u.password,
       email_confirm: true,
-      user_metadata: { name: u.name, role: u.role }
+      user_metadata: { name: u.name, role: u.role, scope: u.scope }
     });
     if (error) throw error;
-    if (u.facility_id) {
-      await sql`UPDATE profiles SET facility_id = ${u.facility_id} WHERE id = ${data.user.id}`;
-    }
+    await sql`UPDATE profiles SET facility_id = ${u.facility_id}, scope = ${u.scope}, region = ${u.region} WHERE id = ${data.user.id}`;
   }
 
   await backfillReportHistory(sql, 14);

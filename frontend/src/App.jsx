@@ -4,6 +4,7 @@ import { api } from './api';
 import KpiCards from './components/KpiCards';
 import IncidentTrendChart from './components/IncidentTrendChart';
 import OffenderTable from './components/OffenderTable';
+import FacilityBreakdown from './components/FacilityBreakdown';
 import IncidentForm from './components/IncidentForm';
 import OffenderProfile from './components/OffenderProfile';
 import FingerprintFlow from './components/FingerprintFlow';
@@ -66,7 +67,8 @@ export default function App() {
     setLoading(true);
     (async () => {
       try {
-        const [offendersData] = await Promise.all([api.getOffenders(), refresh()]);
+        const facilityScoped = user.scope === 'facility' || !user.scope;
+        const [offendersData] = await Promise.all([facilityScoped ? api.getOffenders() : Promise.resolve([]), refresh()]);
         setOffenders(offendersData);
       } catch (err) {
         setError(err.message);
@@ -98,11 +100,17 @@ export default function App() {
     await refresh();
   };
 
+  const isFacilityScoped = !user || !user.scope || user.scope === 'facility';
+
   if (!authChecked) return <div className="loading-screen">Loading OMS dashboard…</div>;
   if (!user) return <LoginPage onLogin={setUser} />;
-  if (!user.facility_id) return <FacilityPicker user={user} onSelected={setUser} />;
+  if (isFacilityScoped && !user.facility_id) return <FacilityPicker user={user} onSelected={setUser} />;
   if (loading) return <div className="loading-screen">Loading OMS dashboard…</div>;
   if (error) return <div className="loading-screen error">Failed to load: {error}. Is the backend running on :4000?</div>;
+
+  const areaLabel = !isFacilityScoped
+    ? (user.scope === 'national' ? 'National — all facilities' : `${user.region} region — all facilities`)
+    : user.facility_name;
 
   return (
     <div className="app app-shell">
@@ -112,14 +120,14 @@ export default function App() {
         <header className="app-header topbar">
           <div>
             <h1>Offender Management System</h1>
-            <span className="subtitle">KPI-driven dashboard · {user.facility_name}</span>
+            <span className="subtitle">KPI-driven dashboard · {areaLabel}</span>
           </div>
           <TopbarSearch />
           <NotificationBell />
           <div className="topbar-user" title={`${user.name} · ${user.role}`}>
             <span className="topbar-user-avatar">{user.name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()}</span>
             <span className="topbar-user-email">{user.name} <span className="topbar-user-role">· {user.role}</span></span>
-            <button type="button" className="btn-ghost topbar-logout" onClick={handleChangeArea}>Change area</button>
+            {isFacilityScoped && <button type="button" className="btn-ghost topbar-logout" onClick={handleChangeArea}>Change area</button>}
             <button type="button" className="btn-ghost topbar-logout" onClick={handleLogout}>Sign out</button>
           </div>
         </header>
@@ -132,20 +140,29 @@ export default function App() {
                 <>
                   <KpiCards kpis={kpis} />
 
-                  <div className="grid-2col">
-                    <IncidentTrendChart trend={trend} />
-                    <IncidentForm
-                      offenders={offenders}
-                      offline={offline}
-                      onToggleOffline={setOffline}
-                      onSubmit={handleLogIncident}
-                      outbox={outbox}
-                      onSync={handleSync}
-                      syncing={syncing}
-                    />
-                  </div>
+                  {isFacilityScoped ? (
+                    <>
+                      <div className="grid-2col">
+                        <IncidentTrendChart trend={trend} />
+                        <IncidentForm
+                          offenders={offenders}
+                          offline={offline}
+                          onToggleOffline={setOffline}
+                          onSubmit={handleLogIncident}
+                          outbox={outbox}
+                          onSync={handleSync}
+                          syncing={syncing}
+                        />
+                      </div>
 
-                  <OffenderTable offenders={offenders} />
+                      <OffenderTable offenders={offenders} />
+                    </>
+                  ) : (
+                    <>
+                      <IncidentTrendChart trend={trend} />
+                      <FacilityBreakdown scope={user.scope} />
+                    </>
+                  )}
                 </>
               }
             />

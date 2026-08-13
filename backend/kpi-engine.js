@@ -2,12 +2,25 @@
 // Every metric here is computed on demand from offenders/incidents/health_records.
 // Nothing is stored redundantly — this module is the single place KPI logic lives.
 // Pass a facilityId to scope every metric to one management area (used by
-// both the live dashboard and the daily per-facility KPI reports).
-
-async function computeKPIs(sql, facilityId = null) {
-  const offenderScope = facilityId ? sql`facility_id = ${facilityId}` : sql`TRUE`;
-  const incidentScope = facilityId ? sql`facility_id = ${facilityId}` : sql`TRUE`;
-  const offenderJoinScope = facilityId ? sql`o.facility_id = ${facilityId}` : sql`TRUE`;
+// both the live dashboard and the daily per-facility KPI reports), or a
+// region to roll up every facility in that province (regional-commissioner
+// view). Passing neither rolls up every facility (national/head-office view).
+async function computeKPIs(sql, facilityId = null, region = null) {
+  const offenderScope = facilityId
+    ? sql`facility_id = ${facilityId}`
+    : region
+    ? sql`facility_id IN (SELECT id FROM facilities WHERE region = ${region})`
+    : sql`TRUE`;
+  const incidentScope = facilityId
+    ? sql`facility_id = ${facilityId}`
+    : region
+    ? sql`facility_id IN (SELECT id FROM facilities WHERE region = ${region})`
+    : sql`TRUE`;
+  const offenderJoinScope = facilityId
+    ? sql`o.facility_id = ${facilityId}`
+    : region
+    ? sql`o.facility_id IN (SELECT id FROM facilities WHERE region = ${region})`
+    : sql`TRUE`;
 
   const [
     [offenderRow],
@@ -56,6 +69,8 @@ async function computeKPIs(sql, facilityId = null) {
     `,
     facilityId
       ? sql`SELECT COALESCE(capacity, 0) AS capacity FROM facilities WHERE id = ${facilityId}`
+      : region
+      ? sql`SELECT COUNT(*) AS total_facilities, COALESCE(SUM(capacity), 0) AS total_capacity FROM facilities WHERE region = ${region}`
       : sql`SELECT COUNT(*) AS total_facilities, COALESCE(SUM(capacity), 0) AS total_capacity FROM facilities`
   ]);
 

@@ -83,6 +83,7 @@ export const api = {
   createBodyReceipt: (receipt) => request('/body-receipts', { method: 'POST', body: JSON.stringify(receipt) }),
   getKpis: () => request('/kpi'),
   getTrend: () => request('/kpi/trend'),
+  getFacilityBreakdown: () => request('/kpi/facilities'),
   getOutbox: () => request('/incidents/outbox'),
   logIncident: (incident) => request('/incidents', { method: 'POST', body: JSON.stringify(incident) }),
   syncIncidents: () => request('/incidents/sync', { method: 'POST' })

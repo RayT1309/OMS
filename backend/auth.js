@@ -16,7 +16,7 @@ async function getUserFromToken(token) {
   if (error || !data.user) return null;
 
   const rows = await sql`
-    SELECT p.id, p.email, p.name, p.role, p.facility_id, f.name AS facility_name
+    SELECT p.id, p.email, p.name, p.role, p.facility_id, p.scope, p.region, f.name AS facility_name
     FROM profiles p
     LEFT JOIN facilities f ON f.id = p.facility_id
     WHERE p.id = ${data.user.id}
