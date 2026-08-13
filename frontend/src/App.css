@@ -554,6 +554,10 @@ tbody tr:hover td { background: color-mix(in srgb, var(--color-primary) 6%, tran
   width: 100%; aspect-ratio: 1; border-radius: 8px; object-fit: cover; border: 1px solid var(--color-border); display: block;
 }
 .photo-gallery-item .profile-list-meta { display: block; margin-top: 0.25rem; }
+.camera-capture { display: flex; flex-direction: column; gap: var(--space-sm); }
+.camera-video {
+  width: 100%; max-height: 320px; border-radius: 8px; background: #000; object-fit: cover;
+}
 
 .profile-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-sm) var(--space-md); margin: 0; }
 .profile-fields dt { font-size: 0.72rem; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.03em; font-weight: 600; }

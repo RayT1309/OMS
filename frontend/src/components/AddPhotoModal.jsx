@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { fileToCompressedDataUrl } from '../utils/photo';
+import CameraCapture from './CameraCapture';
 
 export default function AddPhotoModal({ onClose, onSubmit }) {
   const [kind, setKind] = useState('evidence');
   const [note, setNote] = useState('');
   const [photoDataUrl, setPhotoDataUrl] = useState('');
   const [photoError, setPhotoError] = useState(null);
+  const [showCamera, setShowCamera] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -52,11 +54,26 @@ export default function AddPhotoModal({ onClose, onSubmit }) {
             </select>
           </label>
 
-          <label className="form-field">
-            <span>Photo</span>
-            <input type="file" accept="image/*" capture="environment" onChange={handlePhotoCapture} />
-          </label>
-          {photoDataUrl && (
+          {showCamera ? (
+            <CameraCapture
+              onCapture={(dataUrl) => {
+                setPhotoDataUrl(dataUrl);
+                setShowCamera(false);
+              }}
+              onCancel={() => setShowCamera(false)}
+            />
+          ) : (
+            <>
+              <label className="form-field">
+                <span>Photo</span>
+                <input type="file" accept="image/*" capture="environment" onChange={handlePhotoCapture} />
+              </label>
+              <button type="button" className="btn-secondary" onClick={() => setShowCamera(true)}>
+                Use Camera
+              </button>
+            </>
+          )}
+          {photoDataUrl && !showCamera && (
             <div className="photo-preview">
               <img src={photoDataUrl} alt="Captured" />
               <button type="button" className="btn-ghost" onClick={() => setPhotoDataUrl('')}>Retake</button>
